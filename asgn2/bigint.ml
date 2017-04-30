@@ -63,13 +63,9 @@ module Bigint = struct
         | list1, [], carry   -> sub' list1 [carry] 0
         | [], list2, carry   -> sub' [carry] list2 0
         | car1::cdr1, car2::cdr2, carry ->
-          let topnumber =
-            if ((car1 - carry) < car2) then
-                car1 - carry + 10
-            else car1 - carry
-        in
-          let diff = topnumber - car2
-           in [topnumber - diff]
+            let top = (car1 - carry) + (if car1 < car2 then 10 else 0)
+            in let diff = top - car2
+            in diff :: sub' cdr1 cdr2 (if car1 < car2 then 1 else 0)
 
 
     let rec add' list1 list2 carry = match (list1, list2, carry) with
@@ -78,19 +74,49 @@ module Bigint = struct
         | list1, [], carry   -> add' list1 [carry] 0
         | [], list2, carry   -> add' [carry] list2 0
         | car1::cdr1, car2::cdr2, carry ->
-          let sum = car1 + car2 + carry
-          in  (printf "c1: %d c2: %d carry: %d sum: %d\n%!" car1 car2 carry sum); sum mod radix :: add' cdr1 cdr2 (sum / radix)
+            let sum = car1 + car2 + carry
+            in  (printf "c1: %d c2: %d carry: %d sum: %d\n%!" car1 car2 carry sum); sum mod radix :: add' cdr1 cdr2 (sum / radix)
+
+    let rec mul'' list1 list2 carry = match (list1, list2, carry) with
+        | list1, [], 0       -> []
+        | [], list2, 0       -> list2
+        | list1, [], carry   -> add' list2 [carry] 0 
+        | [], list2, carry   -> []
+        | car1::cdr1, car2::cdr2, carry ->
+            let prod = (car1 * car2) + carry
+            in  (printf "c1: %d c2: %d carry: %d prod: %d\n%!" car1 car2 carry prod); prod mod radix :: mul'' [car1] cdr2 (prod / radix)
+
+    let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
+        let cmp = (compare' value1 value2) in
+        (printf "cmp: %d\n%!" cmp);
+        if neg1 = neg2 then 
+        begin
+            if cmp = -1 then
+            begin
+                let sign = (if neg1 = Pos then Neg else Pos) 
+                in Bigint (sign, sub' value2 value1 0)
+            end
+            else
+                Bigint (neg1, sub' value1 value2 0)
+        end
+        else
+            Bigint (neg1, add' value1 value2 0)
 
     let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
         let cmp = (compare' value1 value2) in
         (printf "cmp: %d\n%!" cmp);
         if neg1 = neg2
         then Bigint (neg1, add' value1 value2 0)
-        else zero
+        else
+            begin
+                 if cmp = -1 then
+                    Bigint (neg2, sub' value2 value1 0)
+                 else
+                    Bigint (neg1, sub' value1 value2 0)
+            end 
 
-    let sub = add
-
-    let mul = add
+    let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
+        Bigint (Pos, mul'' value1 value2 0)
 
     let div = add
 
