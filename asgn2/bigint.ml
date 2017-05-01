@@ -38,6 +38,17 @@ module Bigint = struct
                      then Bigint (Neg, to_intlist 1)
                      else Bigint (Pos, to_intlist 0)
 
+    let trim list =
+        let rec trim' list' = match list' with
+            | []       -> []
+            | [0]      -> []
+            | car::cdr ->
+                 let cdr' = trim' cdr
+                 in  match car, cdr' with
+                     | 0, [] -> []
+                     | car, cdr' -> car::cdr'
+        in trim' list
+
     let rec compare' list1 list2 = match (list1, list2) with
         | [], []    -> 0 (* both are empty, lists are of equal length *)
         | list1, [] -> 1 (* left operand must be larger *)
@@ -75,23 +86,36 @@ module Bigint = struct
         | [], list2, carry   -> add' [carry] list2 0
         | car1::cdr1, car2::cdr2, carry ->
             let sum = car1 + car2 + carry
-            in  (printf "c1: %d c2: %d carry: %d sum: %d\n%!" car1 car2 carry sum); sum mod radix :: add' cdr1 cdr2 (sum / radix)
+            in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
 
-    let rec mul'' list1 list2 carry = match (list1, list2, carry) with
-        | list1, [], 0       -> []
-        | [], list2, 0       -> list2
-        | list1, [], carry   -> add' list2 [carry] 0 
-        | [], list2, carry   -> []
-        | car1::cdr1, car2::cdr2, carry ->
-            let prod = (car1 * car2) + carry
-            in  (printf "c1: %d c2: %d carry: %d prod: %d\n%!" car1 car2 carry prod); prod mod radix :: mul'' [car1] cdr2 (prod / radix)
+    let double num = add' num num 0
+
+    let rec div_and_mul' (red_fish, blue_fish, pow2) =
+        if (compare' blue_fish red_fish) = 1 
+        then [], red_fish 
+        else let res, rem = div_and_mul' (red_fish, double blue_fish, double pow2) in 
+        if (compare' rem blue_fish) = -1 then res, rem
+        else (add' res pow2 0), (trim (sub' rem blue_fish 0))  
+
+    let rec pow' (v, p, c) =
+        if(compare' p [1]) = 1
+            then let prod,_ = div_and_mul' (v, [1], c) 
+            in pow' (v, (trim (sub' p [1] 0)), prod)
+        else c
+                    
+    let div (Bigint (neg1, value1)) (Bigint(neg2, value2)) = 
+        let quotient, rem = div_and_mul' (value1, value2, [1]) in
+        if neg1 = neg2
+        then Bigint (Pos, trim (quotient)) 
+        else Bigint (Neg, trim (quotient))
+
+    let rem (Bigint (neg1, value1)) (Bigint(neg2, value2)) = 
+        let _, rem = div_and_mul' (value1, value2, [1]) in Bigint (Pos, trim (rem)) 
 
     let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
-        let cmp = (compare' value1 value2) in
-        (printf "cmp: %d\n%!" cmp);
         if neg1 = neg2 then 
         begin
-            if cmp = -1 then
+            if (compare' value1 value2) = -1 then
             begin
                 let sign = (if neg1 = Pos then Neg else Pos) 
                 in Bigint (sign, sub' value2 value1 0)
@@ -104,7 +128,6 @@ module Bigint = struct
 
     let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
         let cmp = (compare' value1 value2) in
-        (printf "cmp: %d\n%!" cmp);
         if neg1 = neg2
         then Bigint (neg1, add' value1 value2 0)
         else
@@ -115,14 +138,15 @@ module Bigint = struct
                     Bigint (neg1, sub' value1 value2 0)
             end 
 
-    let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
-        Bigint (Pos, mul'' value1 value2 0)
+    let mul (Bigint (neg1, value1)) (Bigint(neg2, value2)) =
+        let product, _ = div_and_mul' (value1, [1], value2) in
+        if neg1 = neg2
+        then Bigint (Pos, trim (product))
+        else Bigint (Neg, trim (product))
 
-    let div = add
-
-    let rem = add
-
-    let pow = add
+    let pow (Bigint (neg1, value1)) (Bigint(neg2, value2)) =
+        if(compare' value2 [0]) = 0 then Bigint(Pos, [1])
+        else Bigint(Pos, pow' (value1, value2, value1))
 
 end
 
