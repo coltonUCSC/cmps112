@@ -58,7 +58,7 @@ module Bigint = struct
         in trim' list
 
     let rec compare' list1 list2 = match (list1, list2) with
-        | [], []    -> 0 (* both are empty, lists are of equal length *)
+        | [], []    -> 0 (* both empty, lists are of equal length *)
         | list1, [] -> 1 (* left operand must be larger *)
         | [], list2 -> -1 (* right operand must be larger *)
         | car1::cdr1, car2::cdr2 -> 
@@ -100,7 +100,8 @@ module Bigint = struct
     let rec div_and_mul' (red_fish, blue_fish, pow2) =
         if (compare' blue_fish red_fish) = 1 
         then [], red_fish 
-        else let res, rem = div_and_mul' (red_fish, double blue_fish, double pow2) in 
+        else let res, rem = 
+            div_and_mul' (red_fish, double blue_fish, double pow2) in 
         if (compare' rem blue_fish) = -1 then res, rem
         else (add' res pow2 0), (trim (sub' rem blue_fish 0))  
 
@@ -117,7 +118,8 @@ module Bigint = struct
         else Bigint (Neg, trim (quotient))
 
     let rem (Bigint (neg1, value1)) (Bigint(neg2, value2)) = 
-        let _, rem = div_and_mul' (value1, value2, [1]) in Bigint (Pos, trim (rem)) 
+        let _, rem = div_and_mul' (value1, value2, [1]) in 
+        Bigint (Pos, trim (rem)) 
 
     let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
         if neg1 = neg2 then 
