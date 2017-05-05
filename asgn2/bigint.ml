@@ -38,6 +38,14 @@ module Bigint = struct
                      then Bigint (Neg, to_intlist 1)
                      else Bigint (Pos, to_intlist 0)
 
+    let string_of_bigint (Bigint (sign, value)) =
+        match value with
+        | []    -> "0"
+        | value -> let reversed = reverse value
+                   in  strcat ""
+                       ((if sign = Pos then "" else "-") ::
+                        (map string_of_int reversed))
+
     let trim list =
         let rec trim' list' = match list' with
             | []       -> []
@@ -74,10 +82,9 @@ module Bigint = struct
         | list1, [], carry   -> sub' list1 [carry] 0
         | [], list2, carry   -> sub' [carry] list2 0
         | car1::cdr1, car2::cdr2, carry ->
-            let top = (car1 - carry) + (if car1 < car2 then 10 else 0)
-            in let diff = top - car2
-            in diff :: sub' cdr1 cdr2 (if car1 < car2 then 1 else 0)
-
+            let res = (car1 - car2) - carry in
+            if res < 0 then (res + 10) :: sub' cdr1 cdr2 1
+            else res :: sub' cdr1 cdr2 0 
 
     let rec add' list1 list2 carry = match (list1, list2, carry) with
         | list1, [], 0       -> list1
@@ -146,7 +153,11 @@ module Bigint = struct
 
     let pow (Bigint (neg1, value1)) (Bigint(neg2, value2)) =
         if(compare' value2 [0]) = 0 then Bigint(Pos, [1])
-        else Bigint(Pos, pow' (value1, value2, value1))
+        else 
+        begin 
+            if neg2 = Neg then Bigint(Pos, add' [0] [0] 0)
+            else Bigint(Pos, pow' (value1, value2, value1))
+        end
 
 end
 
