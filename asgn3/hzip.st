@@ -172,5 +172,25 @@ freqtable keysAndValuesDo:
    ]
 ].
 
+[priority size > 1] whileTrue: 
+[
+  |left right newtree|
+  left := priority removeFirst.
+  (priority size > 0) ifTrue:
+  [
+    right := priority removeFirst.
+    (left notNil and: [right notNil]) ifTrue: 
+    [
+      'left: ' display.
+      left displayNl.
+      'right: ' display.
+      right displayNl.
+      newtree := Tree new: left char count: left count left: left right: right.
+      priority add: newtree.
+    ]
+
+  ]
+].
+
 
 priority inspect.
