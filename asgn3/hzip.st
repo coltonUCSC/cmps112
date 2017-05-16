@@ -112,7 +112,6 @@ Object subclass: Leaf [
 
 ]
 
-
 Leaf subclass: Tree [
    |left right|
 
@@ -143,9 +142,10 @@ Leaf subclass: Tree [
 
 ]
 
-freqtable := ZeroArray new: 256.
+freqtable := ZeroArray new: 257.
 priority := SortedCollection new.
-priority inspect.
+freqtable at: 256 put: 1.
+
 (1 to: Smalltalk arguments size)
   do: 
   [:index |
@@ -181,16 +181,9 @@ freqtable keysAndValuesDo:
     right := priority removeFirst.
     (left notNil and: [right notNil]) ifTrue: 
     [
-      'left: ' display.
-      left displayNl.
-      'right: ' display.
-      right displayNl.
-      newtree := Tree new: left char count: left count left: left right: right.
+      newtree := Tree new: left char count: left count + right count left: left right: right.
       priority add: newtree.
     ]
 
   ]
 ].
-
-
-priority inspect.
