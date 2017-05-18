@@ -2,14 +2,6 @@
 
 nl := Character nl.
 
-|is_debug is_compress is_uncompress is_display file_name infile| 
-
-is_debug := 0.
-is_compress := 0.
-is_uncompress := 0.
-is_display := 0.
-file_name = ''.
-
 FileStream extend [
   nl := Character nl.
    buildTable: table [
@@ -139,8 +131,15 @@ Leaf subclass: Tree [
       left inorder: visitor prefix: string, '0'.
       right inorder: visitor prefix: string, '1'.
    ]
-
 ]
+
+|is_debug is_compress is_uncompress is_display file_name infile root dfs| 
+
+is_debug := 0.
+is_compress := 0.
+is_uncompress := 0.
+is_display := 0.
+file_name = ''.
 
 freqtable := ZeroArray new: 257.
 priority := SortedCollection new.
@@ -187,3 +186,10 @@ freqtable keysAndValuesDo:
 
   ]
 ].
+
+priority inspect.
+root := priority removeFirst.
+
+root inorder: [:char :string |
+    stdout << '[' << char << ']=' << string << nl.
+] prefix: ''.
