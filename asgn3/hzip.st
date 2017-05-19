@@ -21,6 +21,38 @@ Character extend [
    ]
 ]
 
+Object subclass: OutBits [
+   |bitIndex currentByte myStream|
+   OutBits class >> new [
+      self shouldNotImplement.
+   ]
+   OutBits class >> new: fileStream [
+      |result|
+      result := super new.
+      result init: fileStream.
+      ^result
+   ]
+   clearByte [
+      bitIndex := 8.
+      currentByte := 0.
+   ]
+   init: fileStream [
+      myStream := fileStream.
+      self clearByte.
+   ]
+   flushByte [
+      bitIndex = 8 ifFalse: [
+         myStream nextPutByte: currentByte.
+         self clearByte.
+      ]
+   ]
+   writeBit: bit [
+      currentByte := currentByte bitAt: bitIndex put: bit.
+      bitIndex := bitIndex - 1.
+      bitIndex = 0 ifTrue: [self flushByte].
+   ]
+]
+
 Object subclass: ZeroArray [
    |theArray|
 
@@ -102,6 +134,10 @@ Object subclass: Leaf [
       visitor value: char value: string.
    ]
 
+   myorder: visitor prefix: string bitstream: bs [
+      visitor value: char value: string value: bs.
+   ]
+
 ]
 
 Leaf subclass: Tree [
@@ -131,9 +167,15 @@ Leaf subclass: Tree [
       left inorder: visitor prefix: string, '0'.
       right inorder: visitor prefix: string, '1'.
    ]
+
+   myorder: visitor prefix: string bitstream: bs [
+      left myorder: visitor prefix: string, '0' bitstream: bs.
+      left myorder: visitor prefix: string, '1' bitstream: bs.
+   ]
+
 ]
 
-|is_debug is_compress is_uncompress is_display file_name infile root dfs| 
+|is_debug is_compress is_uncompress is_display file_name infile root outfile bitstream| 
 
 is_debug := 0.
 is_compress := 0.
@@ -193,3 +235,20 @@ root := priority removeFirst.
 root inorder: [:char :string |
     stdout << '[' << char << ']=' << string << nl.
 ] prefix: ''.
+
+"for now spit shit to fixed output file"
+outfile := FileStream open: 'out' mode: FileStream write.
+"for now make sure file is empty before we start"
+outfile position: 0.
+outfile truncate.
+
+bitstream := OutBits new: outfile.
+
+root myorder: [:char :string :bs |
+    stdout << '[' << char << ']=' << string << nl.
+    bs writeBit: 0.
+    1 to: 8 do: [:index |
+        bs writeBit: ((char asInteger) bitAt: index).
+    ].
+] prefix: '' bitstream: bitstream.
+
