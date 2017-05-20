@@ -51,6 +51,12 @@ Object subclass: OutBits [
       bitIndex := bitIndex - 1.
       bitIndex = 0 ifTrue: [self flushByte].
    ]
+   padfile [
+      [(bitIndex < 8 and: [bitIndex > 0])] whileTrue: [
+         self writeBit: 0.
+         bitIndex := bitIndex-1.
+      ]
+   ]
 ]
 
 Object subclass: ZeroArray [
@@ -100,7 +106,7 @@ Object subclass: Leaf [
    |char count|
    char [ ^ char ]
    count [ ^ count ]
-
+   isLeaf [ ^true ]
    Leaf class >> new [
       self shouldNotImplement
    ]
@@ -130,22 +136,33 @@ Object subclass: Leaf [
       (self printBase: aStream) << ')'.
    ]
 
-   inorder: visitor prefix: string [
-      visitor value: char value: string.
+   dumpTree: outbits [
+      outbits writeBit: 0.
+
+      8 to: 1 by: -1 do: [:index |
+         outbits writeBit: ((self char asInteger) bitAt: index)].
+
+      char asInteger = 0 ifTrue: [
+         outbits writeBit: 0.].
+      char asInteger = 256 ifTrue: [
+         outbits writeBit: 1.].
    ]
 
-   myorder: visitor prefix: string bitstream: bs [
-      visitor value: char value: string value: bs.
+   inorder: visitor prefix: string [
+      visitor value: char value: string.
    ]
 
 ]
 
 Leaf subclass: Tree [
    |left right|
-
+   isLeaf [ ^false ]
    Tree class >> new: aChar count: aCount [
       self shouldNotImplement
    ]
+   
+   getRight [ ^right ]
+   getLeft [ ^left ]
 
    Tree class >> new: aChar count: aCount left: aLeft right: aRight [
       |result|
@@ -163,19 +180,20 @@ Leaf subclass: Tree [
       (self printBase: aStream) << ',' << left << ',' << right << ')'.
    ]
 
+   dumpTree: outbits [
+      left dumpTree: outbits.
+      right dumpTree: outbits.
+      outbits writeBit: 1.
+   ]
+
    inorder: visitor prefix: string [
       left inorder: visitor prefix: string, '0'.
       right inorder: visitor prefix: string, '1'.
    ]
 
-   myorder: visitor prefix: string bitstream: bs [
-      left myorder: visitor prefix: string, '0' bitstream: bs.
-      left myorder: visitor prefix: string, '1' bitstream: bs.
-   ]
-
 ]
 
-|is_debug is_compress is_uncompress is_display file_name infile root outfile bitstream| 
+|is_debug is_compress is_uncompress is_display file_name infile root outfile bitstream encoding| 
 
 is_debug := 0.
 is_compress := 0.
@@ -184,6 +202,7 @@ is_display := 0.
 file_name = ''.
 
 freqtable := ZeroArray new: 257.
+encoding := ZeroArray new: 257.
 priority := SortedCollection new.
 freqtable at: 256 put: 1.
 
@@ -234,21 +253,33 @@ root := priority removeFirst.
 
 root inorder: [:char :string |
     stdout << '[' << char << ']=' << string << nl.
+    encoding at: (char asInteger) put: string.
 ] prefix: ''.
 
-"for now spit shit to fixed output file"
 outfile := FileStream open: 'out' mode: FileStream write.
-"for now make sure file is empty before we start"
 outfile position: 0.
 outfile truncate.
 
 bitstream := OutBits new: outfile.
 
-root myorder: [:char :string :bs |
-    stdout << '[' << char << ']=' << string << nl.
-    bs writeBit: 0.
-    1 to: 8 do: [:index |
-        bs writeBit: ((char asInteger) bitAt: index).
+root dumpTree: bitstream.
+bitstream writeBit: 1.
+
+infile position: 0.
+[infile atEnd not] whileTrue:
+[
+    temp := encoding at: infile next asInteger.
+    (1 to: temp size) do: [:i |
+        ((temp at: i) asString = '0') ifTrue: [bitstream writeBit: 0.]
+                         ifFalse: [bitstream writeBit: 1.].
     ].
-] prefix: '' bitstream: bitstream.
+].
+
+eof := encoding at: 256.
+(1 to: eof size) do: [:i |
+    ((eof at: i) asString = '0') ifTrue: [bitstream writeBit: 0.]
+                         ifFalse: [bitstream writeBit: 1.].
+].
+
+bitstream flushByte.
 
