@@ -59,6 +59,34 @@ Object subclass: OutBits [
    ]
 ]
 
+Object subclass: BitStream [
+   |bitIndex byte myStream|
+   BitStream class >> new: fileStream [
+      |result|
+      result := super new.
+      result init: fileStream.
+      ^result
+   ]
+   init: fileStream [
+      myStream := fileStream.
+      bitIndex := 1.
+   ]
+   nextBit [
+      bitIndex = 1 ifTrue: [
+         byte := myStream next.
+         bitIndex := 9.
+      ].
+      bitIndex := bitIndex - 1.
+      ^byte value bitAt: bitIndex
+   ]
+   atEnd [
+      ^bitIndex = 1 and: [myStream atEnd]
+   ]
+   currByte [
+      ^byte
+   ]
+]
+
 Object subclass: ZeroArray [
    |theArray|
 
@@ -193,7 +221,7 @@ Leaf subclass: Tree [
 
 ]
 
-|is_debug is_compress is_uncompress is_display file_name infile root outfile bitstream encoding| 
+|is_debug is_compress is_uncompress is_display file_name infile root outfile istream ostream encoding ptr| 
 
 is_debug := 0.
 is_compress := 0.
@@ -201,11 +229,16 @@ is_uncompress := 0.
 is_display := 0.
 file_name = ''.
 
+"frequency table"
 freqtable := ZeroArray new: 257.
+"encoding table, holds huffman encoding for each char"
 encoding := ZeroArray new: 257.
+"priority queue for building tree"
 priority := SortedCollection new.
+"manually insert EOF"
 freqtable at: 256 put: 1.
 
+"parse command line args"
 (1 to: Smalltalk arguments size)
   do: 
   [:index |
@@ -216,70 +249,203 @@ freqtable at: 256 put: 1.
     arg = '-t' ifTrue: [is_display := 1].
   ].
 
-file_name := Smalltalk arguments at: Smalltalk arguments size.
-infile := FileStream open: file_name mode: FileStream read.
-infile buildTable: freqtable.
-
-freqtable keysAndValuesDo: 
-[:key :value |
-   (value notNil and: [value > 0]) ifTrue: 
-   [
-    |node|
-      stdout << 'freq[' << key asCharacter visible << ']=' << value
-             << nl.
-    node := Leaf new: key asCharacter count: value.
-    priority add: node.
-   ]
-].
-
-[priority size > 1] whileTrue: 
+"compress the file"
+(is_compress = 1) ifTrue:
 [
-  |left right newtree|
-  left := priority removeFirst.
-  (priority size > 0) ifTrue:
-  [
-    right := priority removeFirst.
-    (left notNil and: [right notNil]) ifTrue: 
-    [
-      newtree := Tree new: left char count: left count + right count left: left right: right.
-      priority add: newtree.
-    ]
+    outfile_name := Smalltalk arguments at: Smalltalk arguments size.
+    infile_name := Smalltalk arguments at: ((Smalltalk arguments size) - 1).
+    infile := FileStream open: infile_name mode: FileStream read.
+    outfile := FileStream open: outfile_name mode: FileStream write.
 
-  ]
-].
+    "build frequency table"
+    infile buildTable: freqtable.
 
-priority inspect.
-root := priority removeFirst.
-
-root inorder: [:char :string |
-    stdout << '[' << char << ']=' << string << nl.
-    encoding at: (char asInteger) put: string.
-] prefix: ''.
-
-outfile := FileStream open: 'out' mode: FileStream write.
-outfile position: 0.
-outfile truncate.
-
-bitstream := OutBits new: outfile.
-
-root dumpTree: bitstream.
-bitstream writeBit: 1.
-
-infile position: 0.
-[infile atEnd not] whileTrue:
-[
-    temp := encoding at: infile next asInteger.
-    (1 to: temp size) do: [:i |
-        ((temp at: i) asString = '0') ifTrue: [bitstream writeBit: 0.]
-                         ifFalse: [bitstream writeBit: 1.].
+    "add all elements from frequency table into PQ"
+    freqtable keysAndValuesDo: 
+    [:key :value |
+       (value notNil and: [value > 0]) ifTrue: 
+       [
+        |node|
+          stdout << 'freq[' << key asCharacter visible << ']=' << value
+                 << nl.
+        node := Leaf new: key asCharacter count: value.
+        priority add: node.
+       ]
     ].
-].
 
-eof := encoding at: 256.
-(1 to: eof size) do: [:i |
-    ((eof at: i) asString = '0') ifTrue: [bitstream writeBit: 0.]
-                         ifFalse: [bitstream writeBit: 1.].
-].
+    "build huffman tree"
+    [priority size > 1] whileTrue: 
+    [
+      |left right newtree|
+      left := priority removeFirst.
+      (priority size > 0) ifTrue:
+      [
+        right := priority removeFirst.
+        (left notNil and: [right notNil]) ifTrue: 
+        [
+          newtree := Tree new: left char count: left count + right count left: left right: right.
+          priority add: newtree.
+        ]
 
-bitstream flushByte.
+      ]
+    ].
 
+    priority inspect.
+    root := priority removeFirst.
+
+    "inorder DFS to build encoding table"
+    root inorder: [:char :string |
+        stdout << '[' << char << ']=' << string << nl.
+        encoding at: (char asInteger) put: string.
+    ] prefix: ''.
+
+    "open a bitstream for the outfile"
+    ostream := OutBits new: outfile.
+
+    "write encoding tree out to file"
+    root dumpTree: ostream.
+
+    "dump last bit to indicate return from root for decode"
+    ostream writeBit: 1.
+
+    "loop back over input and write out encoded version of each byte"
+    infile position: 0.
+    [infile atEnd not] whileTrue:
+    [
+        temp := encoding at: infile next asInteger.
+        (1 to: temp size) do: [:i |
+            ((temp at: i) asString = '0') 
+                ifTrue:  [ostream writeBit: 0.]
+                ifFalse: [ostream writeBit: 1.].
+        ].
+    ].
+
+    "write out EOF encoding"
+    eof := encoding at: 256.
+    (1 to: eof size) do: [:i |
+        ((eof at: i) asString = '0') 
+            ifTrue:  [ostream writeBit: 0.]
+            ifFalse: [ostream writeBit: 1.].
+    ].
+
+    "simply flushing byte should pad out to byte size"
+    ostream flushByte.
+]
+
+"uncompress file"
+(is_uncompress = 1) ifTrue:
+[
+    |treeBuilt decoded byte node tree|
+
+    infile_name := Smalltalk arguments at: Smalltalk arguments size.
+    infile := FileStream open: infile_name mode: FileStream read.
+
+    treeBuilt := 0.
+    decoded := 0.
+    stack := OrderedCollection new.
+
+    "open a bitstream on the input file"
+    istream := BitStream new: infile.
+
+    "read first bit, should be a 0"
+    byte := 0.
+    bit := istream nextBit.
+
+    "read the first byte and insert into stack"
+    8 to: 1 by: -1 do: [:i |
+        bit := istream nextBit.
+        byte := byte bitAt: i put: bit.
+    ].
+
+    "special case, check for EOF"
+    (byte = 0) ifTrue: [
+        bit := istream nextBit.
+        (bit := 1) ifTrue: [
+            byte := byte + 256.
+        ].
+    ].
+
+    "add first element to stack"
+    node := Leaf new: byte count: ''.
+    stack addFirst: node.
+
+    "loop until stack is empty to build decoding tree"
+    [treeBuilt = 0] whileTrue:
+    [
+        byte := 0.
+        op := istream nextBit.
+
+        (op = 0) ifTrue:
+        [
+            "read the byte"
+            8 to: 1 by: -1 do: [:i |
+                bit := istream nextBit.
+                byte := byte bitAt: i put: bit.
+            ].
+
+            "special case, check for EOF"
+            (byte = 0) ifTrue: [
+                bit := istream nextBit.
+                (bit = 1) ifTrue: [
+                    byte := byte + 256.
+                ].
+            ].
+
+            "add element to stack"
+            node := Leaf new: byte count: ''.
+            stack addFirst: node.
+        ].
+
+        (op = 1) ifTrue:
+        [
+            right := stack removeFirst.
+            (stack size = 0) 
+            ifTrue:
+            [
+                treeBuilt := 1.
+                tree := right.
+            ]
+            ifFalse:
+            [
+                left := stack removeFirst.
+                temp := Tree new: -1 count: '' left: left right: right.
+                stack addFirst: temp.
+            ].
+        ].
+    ].
+
+    "read rest of the bits to write out original file"
+    eof := 256.
+    ptr := tree.
+    [decoded = 0] whileTrue:
+    [
+        bit := istream nextBit.
+        "travel down left branch"
+        (bit = 0) ifTrue:
+        [
+            node := ptr getLeft.
+            ptr := node.
+        ].
+
+        (bit = 1) ifTrue:
+        [
+            node := ptr getRight.
+            ptr := node.
+        ].
+
+        (node isLeaf = true) ifTrue:
+        [
+            c := node char.
+            (c asInteger = eof) ifTrue:
+            [
+                decoded := 1.
+            ]
+            ifFalse:
+            [
+                stdout nextPutByte: c.
+                ptr := tree.
+
+            ].
+        ].
+    ].
+]
