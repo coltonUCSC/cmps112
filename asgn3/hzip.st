@@ -1,4 +1,4 @@
-#!/usr/bin/gst -f
+#!/afs/cats.ucsc.edu/courses/cmps112-wm/usr/smalltalk/bin/gst -f
 
 nl := Character nl.
 
@@ -215,7 +215,8 @@ Leaf subclass: Tree [
 
 ]
 
-|is_debug is_compress is_uncompress is_display file_name infile root outfile istream ostream encoding ptr| 
+|is_debug is_compress is_uncompress is_display 
+file_name infile root outfile istream ostream encoding ptr| 
 
 is_debug := 0.
 is_compress := 0.
@@ -272,7 +273,8 @@ freqtable at: 256 put: 1.
             right := priority removeFirst.
             (left notNil and: [right notNil]) ifTrue: 
             [
-              newtree := Tree new: left char count: left count + right count left: left right: right.
+              newtree := Tree new: left char 
+              count: left count + right count left: left right: right.
               priority add: newtree.
             ]
         ]
@@ -332,7 +334,8 @@ freqtable at: 256 put: 1.
 (is_compress = 1) ifTrue:
 [
     outfile_name := Smalltalk arguments at: Smalltalk arguments size.
-    infile_name := Smalltalk arguments at: ((Smalltalk arguments size) - 1).
+    infile_name := Smalltalk arguments at: 
+                                    ((Smalltalk arguments size) - 1).
     infile := FileStream open: infile_name mode: FileStream read.
     outfile := FileStream open: outfile_name mode: FileStream write.
 
@@ -360,7 +363,8 @@ freqtable at: 256 put: 1.
             right := priority removeFirst.
             (left notNil and: [right notNil]) ifTrue: 
             [
-              newtree := Tree new: left char count: left count + right count left: left right: right.
+              newtree := Tree new: left char 
+              count: left count + right count left: left right: right.
               priority add: newtree.
             ]
         ]
@@ -383,7 +387,7 @@ freqtable at: 256 put: 1.
         "dump last bit to indicate return from root for decode"
         ostream writeBit: 1.
 
-        "loop back over input and write out encoded version of each byte"
+        "write out encoded version of each byte"
         infile position: 0.
         [infile atEnd not] whileTrue:
         [
@@ -419,121 +423,127 @@ freqtable at: 256 put: 1.
     infile_name := Smalltalk arguments at: Smalltalk arguments size.
     infile := FileStream open: infile_name mode: FileStream read.
 
-    treeBuilt := 0.
-    decoded := 0.
-    stack := OrderedCollection new.
-
-    "open a bitstream on the input file"
-    istream := BitStream new: infile.
-
-    "read first bit, should be a 0"
-    byte := 0.
-    bit := istream nextBit.
-
-    "read the first byte and insert into stack"
-    8 to: 1 by: -1 do: 
-    [:i |
-        bit := istream nextBit.
-        byte := byte bitAt: i put: bit.
-    ].
-
-    "special case, check for EOF"
-    (byte = 0) ifTrue: 
+    (infile atEnd) ifFalse:
     [
-        bit := istream nextBit.
-        (bit = 1) ifTrue: 
-        [
-            byte := byte + 256.
-        ].
-    ].
 
-    "add first element to stack"
-    node := Leaf new: byte count: ''.
-    stack addFirst: node.
+        treeBuilt := 0.
+        decoded := 0.
+        stack := OrderedCollection new.
 
-    "loop until stack is empty to build decoding tree"
-    [treeBuilt = 0] whileTrue:
-    [
+        "open a bitstream on the input file"
+        istream := BitStream new: infile.
+
+        "read first bit, should be a 0"
         byte := 0.
-        op := istream nextBit.
+        bit := istream nextBit.
 
-        (op = 0) ifTrue:
-        [
-            "read the byte"
-            8 to: 1 by: -1 do: 
-            [:i |
-                bit := istream nextBit.
-                byte := byte bitAt: i put: bit.
-            ].
-
-            "special case, check for EOF"
-            (byte = 0) ifTrue: 
-            [
-                bit := istream nextBit.
-                (bit = 1) ifTrue: 
-                [
-                    byte := byte + 256.
-                ].
-            ].
-
-            "add element to stack"
-            node := Leaf new: byte count: ''.
-            stack addFirst: node.
+        "read the first byte and insert into stack"
+        8 to: 1 by: -1 do: 
+        [:i |
+            bit := istream nextBit.
+            byte := byte bitAt: i put: bit.
         ].
 
-        (op = 1) ifTrue:
-        [
-            right := stack removeFirst.
-            (stack size = 0) 
-            ifTrue:
-            [
-                treeBuilt := 1.
-                tree := right.
-            ]
-            ifFalse:
-            [
-                left := stack removeFirst.
-                temp := Tree new: -1 count: '' left: left right: right.
-                stack addFirst: temp.
-            ].
-        ].
-    ].
-
-    "read rest of the bits to write out original file"
-    eof := 256.
-    ptr := tree.
-    (ptr isLeaf) ifFalse: 
-    [
-        [decoded = 0] whileTrue:
+        "special case, check for EOF"
+        (byte = 0) ifTrue: 
         [
             bit := istream nextBit.
-            "travel down left branch"
-            (bit = 0) ifTrue:
+            (bit = 1) ifTrue: 
             [
-                node := ptr getLeft.
-                ptr := node.
+                byte := byte + 256.
             ].
+        ].
 
-            (bit = 1) ifTrue:
-            [
-                node := ptr getRight.
-                ptr := node.
-            ].
+        "add first element to stack"
+        node := Leaf new: byte count: ''.
+        stack addFirst: node.
 
-            (node isLeaf = true) ifTrue:
+        "loop until stack is empty to build decoding tree"
+        [treeBuilt = 0] whileTrue:
+        [
+            byte := 0.
+            op := istream nextBit.
+
+            (op = 0) ifTrue:
             [
-                c := node char.
-                (c asInteger = eof) ifTrue:
+                "read the byte"
+                8 to: 1 by: -1 do: 
+                [:i |
+                    bit := istream nextBit.
+                    byte := byte bitAt: i put: bit.
+                ].
+
+                "special case, check for EOF"
+                (byte = 0) ifTrue: 
                 [
-                    decoded := 1.
+                    bit := istream nextBit.
+                    (bit = 1) ifTrue: 
+                    [
+                        byte := byte + 256.
+                    ].
+                ].
+
+                "add element to stack"
+                node := Leaf new: byte count: ''.
+                stack addFirst: node.
+            ].
+
+            (op = 1) ifTrue:
+            [
+                right := stack removeFirst.
+                (stack size = 0) 
+                ifTrue:
+                [
+                    treeBuilt := 1.
+                    tree := right.
                 ]
                 ifFalse:
                 [
-                    stdout nextPutByte: c.
-                    ptr := tree.
+                    left := stack removeFirst.
+                    temp := Tree new: -1 
+                        count: '' left: left right: right.
+                    stack addFirst: temp.
+                ].
+            ].
+        ].
 
+        "read rest of the bits to write out original file"
+        eof := 256.
+        ptr := tree.
+        (ptr isLeaf) ifFalse: 
+        [
+            [decoded = 0] whileTrue:
+            [
+                bit := istream nextBit.
+                "travel down left branch"
+                (bit = 0) ifTrue:
+                [
+                    node := ptr getLeft.
+                    ptr := node.
+                ].
+
+                (bit = 1) ifTrue:
+                [
+                    node := ptr getRight.
+                    ptr := node.
+                ].
+
+                (node isLeaf = true) ifTrue:
+                [
+                    c := node char.
+                    (c asInteger = eof) ifTrue:
+                    [
+                        decoded := 1.
+                    ]
+                    ifFalse:
+                    [
+                        stdout nextPutByte: c.
+                        ptr := tree.
+
+                    ].
                 ].
             ].
         ].
     ].
+
 ]
