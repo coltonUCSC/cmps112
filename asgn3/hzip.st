@@ -367,44 +367,48 @@ freqtable at: 256 put: 1.
     ].
 
     root := priority removeFirst.
-
-    "inorder DFS to build encoding table"
-    root inorder: [:char :string |
-        encoding at: (char asInteger) put: string.
-    ] prefix: ''.
-
-    "open a bitstream for the outfile"
-    ostream := OutBits new: outfile.
-
-    "write encoding tree out to file"
-    root dumpTree: ostream.
-
-    "dump last bit to indicate return from root for decode"
-    ostream writeBit: 1.
-
-    "loop back over input and write out encoded version of each byte"
-    infile position: 0.
-    [infile atEnd not] whileTrue:
+    (root isLeaf = false) ifTrue: 
     [
-        temp := encoding at: infile next asInteger.
-        (1 to: temp size) do: [:i |
-            ((temp at: i) asString = '0') 
+        "inorder DFS to build encoding table"
+        root inorder: [:char :string |
+            encoding at: (char asInteger) put: string.
+        ] prefix: ''.
+
+        "open a bitstream for the outfile"
+        ostream := OutBits new: outfile.
+
+        "write encoding tree out to file"
+        root dumpTree: ostream.
+
+        "dump last bit to indicate return from root for decode"
+        ostream writeBit: 1.
+
+        "loop back over input and write out encoded version of each byte"
+        infile position: 0.
+        [infile atEnd not] whileTrue:
+        [
+            temp := encoding at: infile next asInteger.
+            (1 to: temp size) do: [:i |
+                ((temp at: i) asString = '0') 
+                    ifTrue:  [ostream writeBit: 0.]
+                    ifFalse: [ostream writeBit: 1.].
+            ].
+        ].
+
+        "write out EOF encoding"
+        eof := encoding at: 256.
+        (1 to: eof size) do: 
+        [:i |
+            ((eof at: i) asString = '0') 
                 ifTrue:  [ostream writeBit: 0.]
                 ifFalse: [ostream writeBit: 1.].
         ].
+
+        "simply flushing byte should pad out to byte size"
+        ostream flushByte.
+
     ].
 
-    "write out EOF encoding"
-    eof := encoding at: 256.
-    (1 to: eof size) do: 
-    [:i |
-        ((eof at: i) asString = '0') 
-            ifTrue:  [ostream writeBit: 0.]
-            ifFalse: [ostream writeBit: 1.].
-    ].
-
-    "simply flushing byte should pad out to byte size"
-    ostream flushByte.
 ]
 
 "uncompress file"
