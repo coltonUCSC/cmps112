@@ -265,18 +265,17 @@ freqtable at: 256 put: 1.
     "build huffman tree"
     [priority size > 1] whileTrue: 
     [
-      |left right newtree|
-      left := priority removeFirst.
-      (priority size > 0) ifTrue:
-      [
-        right := priority removeFirst.
-        (left notNil and: [right notNil]) ifTrue: 
+        |left right newtree|
+        left := priority removeFirst.
+        (priority size > 0) ifTrue:
         [
-          newtree := Tree new: left char count: left count + right count left: left right: right.
-          priority add: newtree.
+            right := priority removeFirst.
+            (left notNil and: [right notNil]) ifTrue: 
+            [
+              newtree := Tree new: left char count: left count + right count left: left right: right.
+              priority add: newtree.
+            ]
         ]
-
-      ]
     ].
 
     root := priority removeFirst.
@@ -343,29 +342,28 @@ freqtable at: 256 put: 1.
     "add all elements from frequency table into PQ"
     freqtable keysAndValuesDo: 
     [:key :value |
-       (value notNil and: [value > 0]) ifTrue: 
-       [
-        |node|
-        node := Leaf new: key asCharacter count: value.
-        priority add: node.
-       ]
+        (value notNil and: [value > 0]) ifTrue: 
+        [
+            |node|
+            node := Leaf new: key asCharacter count: value.
+            priority add: node.
+        ]
     ].
 
     "build huffman tree"
     [priority size > 1] whileTrue: 
     [
-      |left right newtree|
-      left := priority removeFirst.
-      (priority size > 0) ifTrue:
-      [
-        right := priority removeFirst.
-        (left notNil and: [right notNil]) ifTrue: 
+        |left right newtree|
+        left := priority removeFirst.
+        (priority size > 0) ifTrue:
         [
-          newtree := Tree new: left char count: left count + right count left: left right: right.
-          priority add: newtree.
+            right := priority removeFirst.
+            (left notNil and: [right notNil]) ifTrue: 
+            [
+              newtree := Tree new: left char count: left count + right count left: left right: right.
+              priority add: newtree.
+            ]
         ]
-
-      ]
     ].
 
     root := priority removeFirst.
@@ -398,7 +396,8 @@ freqtable at: 256 put: 1.
 
     "write out EOF encoding"
     eof := encoding at: 256.
-    (1 to: eof size) do: [:i |
+    (1 to: eof size) do: 
+    [:i |
         ((eof at: i) asString = '0') 
             ifTrue:  [ostream writeBit: 0.]
             ifFalse: [ostream writeBit: 1.].
@@ -428,15 +427,18 @@ freqtable at: 256 put: 1.
     bit := istream nextBit.
 
     "read the first byte and insert into stack"
-    8 to: 1 by: -1 do: [:i |
+    8 to: 1 by: -1 do: 
+    [:i |
         bit := istream nextBit.
         byte := byte bitAt: i put: bit.
     ].
 
     "special case, check for EOF"
-    (byte = 0) ifTrue: [
+    (byte = 0) ifTrue: 
+    [
         bit := istream nextBit.
-        (bit = 1) ifTrue: [
+        (bit = 1) ifTrue: 
+        [
             byte := byte + 256.
         ].
     ].
@@ -454,15 +456,18 @@ freqtable at: 256 put: 1.
         (op = 0) ifTrue:
         [
             "read the byte"
-            8 to: 1 by: -1 do: [:i |
+            8 to: 1 by: -1 do: 
+            [:i |
                 bit := istream nextBit.
                 byte := byte bitAt: i put: bit.
             ].
 
             "special case, check for EOF"
-            (byte = 0) ifTrue: [
+            (byte = 0) ifTrue: 
+            [
                 bit := istream nextBit.
-                (bit = 1) ifTrue: [
+                (bit = 1) ifTrue: 
+                [
                     byte := byte + 256.
                 ].
             ].
