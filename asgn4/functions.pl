@@ -1,4 +1,4 @@
-% $Id: functions.pl,v 1.3 2016-11-08 15:04:13-08 - - $
+% $Id: functions.pl,v 1.3 2017-7-06 15:04:13-08 - - $
 
 not(X) :- X, !, fail.
 not(_).
@@ -80,7 +80,8 @@ display_airport(Airport, AirportName) :-
 
 display_path([]).
 display_path([flight(Depart, Arrive, StartTime)|Path]) :-
-    airport(Depart, DepartName, _, _), airport(Arrive, ArriveName, _, _),
+    airport(Depart, DepartName, _, _), 
+    airport(Arrive, ArriveName, _, _),
     write('depart  '), 
     display_airport(Depart, DepartName),
     hm_to_h(StartTime, DepartTime), display_time(DepartTime), nl,
@@ -102,11 +103,14 @@ find_path(Src, Final, [flight(Src, Dest, DepartTime)|Path]) :-
    find_path(Dest, Final, [flight(Src, Dest, DepartTime)], Path).
 
 find_path(Src, Src, _, [Src]).
-find_path(Src, Final, [flight(PrevSrc, PrevDest, PrevDepartTime)|Tried], [flight(Src, Dest, DepartTime)|Path]) :-
+find_path(Src, Final, 
+   [flight(PrevSrc, PrevDest, PrevDepartTime)|Tried], 
+   [flight(Src, Dest, DepartTime)|Path]) :-
    flight(Src, Dest, DepartTime),
    compute_arrival_time(flight(Src, Dest, DepartTime), ArriveTime),
    not(member(flight(Src, Dest, DepartTime), Tried)),
-   compute_arrival_time(flight(PrevSrc, PrevDest, PrevDepartTime), PrevArriveTime),
+   compute_arrival_time(
+      flight(PrevSrc, PrevDest, PrevDepartTime), PrevArriveTime),
    valid_flight(DepartTime, ArriveTime, PrevArriveTime),
    find_path(Dest, Final, [flight(Src, Dest, DepartTime)|Tried], Path).
 
