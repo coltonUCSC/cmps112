@@ -65,13 +65,28 @@ display_time(HO) :-
    write(':'), 
    display_num_with_padding(M).
 
+capitalize([], []).
+capitalize([H1|T1], [H2|T2]):-
+    lower_upper(H1, H2),
+    capitalize(T1, T2).
+
+display_airport(Airport, AirportName) :-
+    atom_chars(Airport, AirportChars),
+    capitalize(AirportChars, UppAirportChars),
+    format('~S', [UppAirportChars]),
+    write('  '),
+    write(AirportName),
+    write('  ').
+
 display_path([]).
 display_path([flight(Depart, Arrive, DTime)|Path]) :-
     airport(Depart, DName, _, _), airport(Arrive, AName, _, _),
-    write('depart  '), write(Depart), write('  '), write(DName),
-    write('  '), hm_to_h(DTime, DepartT), display_time(DepartT), nl,
-    write('arrive  '), write(Arrive), write('  '), write(AName),
-    write('  '), compute_arrival_time(flight(Depart, Arrive, DTime), ArriveT),
+    write('depart  '), 
+    display_airport(Depart, DName),
+    hm_to_h(DTime, DepartT), display_time(DepartT), nl,
+    write('arrive  '), 
+    display_airport(Arrive, AName),
+    compute_arrival_time(flight(Depart, Arrive, DTime), ArriveT),
     display_time(ArriveT), nl, !,
     display_path(Path).
 display_path(_).
