@@ -57,10 +57,10 @@ display_num_with_padding(Num) :-
    Num >= 10, 
    write(Num).
 
-display_time(HO) :-
-   MO is floor(HO * 60),
-   H is MO // 60,
-   M is MO mod 60,
+display_time(Time) :-
+   X is floor(Time * 60),
+   H is X // 60,
+   M is X mod 60,
    display_num_with_padding(H), 
    write(':'), 
    display_num_with_padding(M).
@@ -79,15 +79,15 @@ display_airport(Airport, AirportName) :-
     write('  ').
 
 display_path([]).
-display_path([flight(Depart, Arrive, DTime)|Path]) :-
-    airport(Depart, DName, _, _), airport(Arrive, AName, _, _),
+display_path([flight(Depart, Arrive, StartTime)|Path]) :-
+    airport(Depart, DepartName, _, _), airport(Arrive, ArriveName, _, _),
     write('depart  '), 
-    display_airport(Depart, DName),
-    hm_to_h(DTime, DepartT), display_time(DepartT), nl,
+    display_airport(Depart, DepartName),
+    hm_to_h(StartTime, DepartTime), display_time(DepartTime), nl,
     write('arrive  '), 
-    display_airport(Arrive, AName),
-    compute_arrival_time(flight(Depart, Arrive, DTime), ArriveT),
-    display_time(ArriveT), nl, !,
+    display_airport(Arrive, ArriveName),
+    compute_arrival_time(flight(Depart, Arrive, StartTime), ArriveTime),
+    display_time(ArriveTime), nl, !,
     display_path(Path).
 display_path(_).
 
